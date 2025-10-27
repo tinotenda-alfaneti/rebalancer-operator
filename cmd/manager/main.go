@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"net/http"
 	"os"
 	"time"
 
@@ -21,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var (
@@ -58,9 +59,22 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	dashboardHandler, err := dashboard.NewHandler()
+	if err != nil {
+		setupLog.Error(err, "unable to create dashboard handler")
+		os.Exit(1)
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		Metrics:                server.Options{BindAddress: metricsAddr},
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: metricsAddr,
+			ExtraHandlers: map[string]http.Handler{
+				"/dashboard":      http.HandlerFunc(dashboardHandler.Static),
+				"/dashboard/":     http.HandlerFunc(dashboardHandler.Static),
+				"/dashboard/data": http.HandlerFunc(dashboardHandler.Data),
+			},
+		},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "rebalancer-operator",
@@ -105,11 +119,7 @@ func main() {
 
 	evictor := executors.NewEvictor(mgr.GetClient())
 
-	dashboardServer := dashboard.NewServer(mgr.GetClient(), metricsProvider, kubeCaches)
-	if err := dashboardServer.Register(mgr); err != nil {
-		setupLog.Error(err, "unable to register dashboard handlers")
-		os.Exit(1)
-	}
+	dashboardHandler.Attach(mgr.GetClient(), metricsProvider, kubeCaches)
 
 	if err := controllers.SetupWithManager(mgr, rebalancerPlanner, evictor); err != nil {
 		setupLog.Error(err, "unable to register controllers")

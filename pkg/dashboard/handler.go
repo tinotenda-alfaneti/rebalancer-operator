@@ -2,10 +2,12 @@ package dashboard
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
 	"sort"
+	"sync"
 	"time"
 
 	rbv1 "github.com/you/rebalancer/api/v1"
@@ -14,67 +16,78 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// Server exposes a lightweight dashboard endpoint and static assets.
-type Server struct {
-	client   client.Client
-	metrics  metrics.Provider
-	caches   *kube.SharedCacheSet
+// Handler serves both static assets and JSON data for the dashboard.
+type Handler struct {
+	mu      sync.RWMutex
+	client  client.Client
+	metrics metrics.Provider
+	caches  *kube.SharedCacheSet
+
+	static http.Handler
 }
 
-// NewServer constructs a dashboard server.
-func NewServer(c client.Client, metrics metrics.Provider, caches *kube.SharedCacheSet) *Server {
-	return &Server{
-		client:  c,
-		metrics: metrics,
-		caches:  caches,
-	}
-}
-
-// Register hooks the handlers into the manager metrics server.
-func (s *Server) Register(mgr ctrl.Manager) error {
-	if err := mgr.AddMetricsExtraHandler("/dashboard/data", http.HandlerFunc(s.handleData)); err != nil {
-		return err
-	}
-
-	contentFS, err := staticFS()
+// NewHandler constructs an empty dashboard handler. Call Attach to provide dependencies.
+func NewHandler() (*Handler, error) {
+	fs, err := staticFS()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	fileServer := http.FileServer(http.FS(contentFS))
-
-	if err := mgr.AddMetricsExtraHandler("/dashboard/", http.StripPrefix("/dashboard", fileServer)); err != nil {
-		return err
-	}
-	// Provide the same handler without trailing slash for convenience.
-	if err := mgr.AddMetricsExtraHandler("/dashboard", fileServer); err != nil {
-		return err
-	}
-
-	return nil
+	return &Handler{
+		static: http.FileServer(http.FS(fs)),
+	}, nil
 }
 
-func (s *Server) handleData(w http.ResponseWriter, r *http.Request) {
+// Attach provides dependencies once they are available.
+func (h *Handler) Attach(client client.Client, metrics metrics.Provider, caches *kube.SharedCacheSet) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.client = client
+	h.metrics = metrics
+	h.caches = caches
+}
+
+// Static serves the UI. If dependencies are missing it still serves HTML.
+func (h *Handler) Static(w http.ResponseWriter, r *http.Request) {
+	// Always serve index for directory (single-page app)
+	if r.URL.Path == "" || r.URL.Path == "/" {
+		r.URL.Path = "/index.html"
+	}
+	h.static.ServeHTTP(w, r)
+}
+
+// Data returns JSON for the dashboard. When dependencies aren't ready yet it returns 503.
+func (h *Handler) Data(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	nodesList, err := s.caches.Core.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		http.Error(w, fmt.Sprintf("list nodes: %v", err), http.StatusInternalServerError)
+	h.mu.RLock()
+	client := h.client
+	metricsProv := h.metrics
+	caches := h.caches
+	h.mu.RUnlock()
+
+	if client == nil || metricsProv == nil || caches == nil {
+		http.Error(w, "dashboard not initialised", http.StatusServiceUnavailable)
 		return
 	}
 
-	nodeUsage, err := s.metrics.CollectNodeMetrics(ctx)
+	nodesList, err := caches.Core.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
-		http.Error(w, fmt.Sprintf("collect node metrics: %v", err), http.StatusInternalServerError)
+		writeDashboardError(w, "list nodes", err)
+		return
+	}
+
+	nodeUsage, err := metricsProv.CollectNodeMetrics(ctx)
+	if err != nil {
+		writeDashboardError(w, "collect node metrics", err)
 		return
 	}
 
 	var policyList rbv1.RebalancePolicyList
-	if err := s.client.List(ctx, &policyList); err != nil {
-		http.Error(w, fmt.Sprintf("list policies: %v", err), http.StatusInternalServerError)
+	if err := client.List(ctx, &policyList); err != nil {
+		writeDashboardError(w, "list policies", err)
 		return
 	}
 
@@ -88,11 +101,8 @@ func (s *Server) handleData(w http.ResponseWriter, r *http.Request) {
 	}
 	setDefaultPolicyValues(&specForClassification)
 
-	// Summaries per policy.
 	for i := range policyList.Items {
 		policy := policyList.Items[i]
-		setDefaultPolicyValues(&policy.Spec)
-
 		response.Policies = append(response.Policies, summarisePolicy(&policy))
 	}
 
@@ -112,8 +122,12 @@ func (s *Server) handleData(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, fmt.Sprintf("encode response: %v", err), http.StatusInternalServerError)
+		writeDashboardError(w, "encode response", err)
 	}
+}
+
+func writeDashboardError(w http.ResponseWriter, context string, err error) {
+	http.Error(w, fmt.Sprintf("%s: %v", context, err), http.StatusInternalServerError)
 }
 
 func summarisePolicy(policy *rbv1.RebalancePolicy) PolicySummary {
@@ -218,4 +232,14 @@ func setDefaultPolicyValues(spec *rbv1.RebalancePolicySpec) {
 		spec.ResourceWeights.CPU = 0.7
 		spec.ResourceWeights.Memory = 0.3
 	}
+}
+
+// Ready reports whether the handler has all required dependencies.
+func (h *Handler) Ready() error {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	if h.client == nil || h.metrics == nil || h.caches == nil {
+		return errors.New("dashboard handler not initialised")
+	}
+	return nil
 }

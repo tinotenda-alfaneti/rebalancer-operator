@@ -28,21 +28,21 @@ type PlanSummary struct {
 
 // PolicySummary summarises a policy and its latest status.
 type PolicySummary struct {
-	Name                    string       `json:"name"`
-	TargetVariance          float64      `json:"targetVariance"`
-	HotThreshold            float64      `json:"hotThreshold"`
-	ColdThreshold           float64      `json:"coldThreshold"`
-	MaxEvictionsPerMinute   int          `json:"maxEvictionsPerMinute"`
+	Name                     string      `json:"name"`
+	TargetVariance           float64     `json:"targetVariance"`
+	HotThreshold             float64     `json:"hotThreshold"`
+	ColdThreshold            float64     `json:"coldThreshold"`
+	MaxEvictionsPerMinute    int         `json:"maxEvictionsPerMinute"`
 	MaxEvictionsPerNamespace int         `json:"maxEvictionsPerNamespace"`
-	DryRun                  bool         `json:"dryRun"`
-	Plan                    PlanSummary  `json:"plan"`
-	NamespacesAllowed       []string     `json:"namespacesAllowed,omitempty"`
-	NamespacesExcluded      []string     `json:"namespacesExcluded,omitempty"`
+	DryRun                   bool        `json:"dryRun"`
+	Plan                     PlanSummary `json:"plan"`
+	NamespacesAllowed        []string    `json:"namespacesAllowed,omitempty"`
+	NamespacesExcluded       []string    `json:"namespacesExcluded,omitempty"`
 }
 
 // DashboardResponse contains aggregated data for the UI.
 type DashboardResponse struct {
-	GeneratedAt time.Time      `json:"generatedAt"`
-	Nodes       []NodeSummary  `json:"nodes"`
+	GeneratedAt time.Time       `json:"generatedAt"`
+	Nodes       []NodeSummary   `json:"nodes"`
 	Policies    []PolicySummary `json:"policies"`
 }
