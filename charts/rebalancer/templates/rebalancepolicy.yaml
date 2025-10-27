@@ -1,0 +1,32 @@
+{{- if .Values.policy.createDefault }}
+apiVersion: rebalancer.dev/v1
+kind: RebalancePolicy
+metadata:
+  name: default
+spec:
+  hotThreshold: 0.8
+  coldThreshold: 0.5
+  hysteresis: 0.05
+  targetVariance: 0.15
+  maxEvictionsPerMinute: {{ .Values.policy.maxEvictionsPerMinute }}
+  maxEvictionsPerNamespace: {{ .Values.policy.maxEvictionsPerNamespace }}
+  namespaces:
+    include:
+      - "*"
+    exclude:
+{{- range .Values.policy.namespaceExcludes }}
+      - {{ . }}
+{{- end }}
+  workloadSelectors:
+    - matchLabels:
+{{- range $k, $v := .Values.policy.selectorLabel }}
+        {{ $k }}: {{ $v }}
+{{- end }}
+  resourceWeights:
+    cpu: 0.7
+    memory: 0.3
+  backoffDuration: 15m
+  dryRun: {{ .Values.policy.dryRun }}
+  respectPodPriority: true
+  respectPDB: true
+{{- end }}

@@ -1,0 +1,26 @@
+apiVersion: rebalancer.dev/v1
+kind: RebalancePolicy
+metadata:
+  name: default
+spec:
+  targetVariance: 0.15
+  hotThreshold: 0.8
+  coldThreshold: 0.5
+  hysteresis: 0.05
+  maxEvictionsPerMinute: 3
+  namespaces:
+    include:
+      - "*"
+    exclude:
+      - kube-system
+  workloadSelectors:
+    - matchLabels:
+        rebalancer: ok
+  resourceWeights:
+    cpu: 0.7
+    memory: 0.3
+  respectPodPriority: true
+  respectPDB: true
+  dryRun: true
+  backoffDuration: 15m
+  maxEvictionsPerNamespace: 1

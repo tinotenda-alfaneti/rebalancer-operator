@@ -1,0 +1,11 @@
+apiVersion: rebalancer.dev/v1
+kind: WorkloadSLO
+metadata:
+  name: api
+  namespace: prod
+spec:
+  maxDisruptionsPerHour: 2
+  minReadySeconds: 30
+  allowStatefulSetEviction: false
+  protectedLabels:
+    app: api

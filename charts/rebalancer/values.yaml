@@ -1,0 +1,51 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/example/rebalancer
+  tag: latest
+  pullPolicy: IfNotPresent
+
+leaderElection: true
+
+serviceAccount:
+  create: true
+  name: ""
+
+rbac:
+  create: true
+
+metrics:
+  service:
+    type: ClusterIP
+    port: 8080
+  prometheusAddress: ""
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    helm.sh/resource-policy: keep
+  hosts:
+    - host: rebalancer.atarnet.org
+      path: /
+
+
+policy:
+  createDefault: true
+  dryRun: true
+  namespaceExcludes:
+    - kube-system
+  selectorLabel:
+    rebalancer: ok
+  maxEvictionsPerMinute: 3
+  maxEvictionsPerNamespace: 1
+  emptyDirThresholdGi: 2
+
+resources: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

@@ -1,0 +1,151 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: rebalancepolicies.rebalancer.dev
+spec:
+  group: rebalancer.dev
+  scope: Cluster
+  names:
+    plural: rebalancepolicies
+    singular: rebalancepolicy
+    kind: RebalancePolicy
+    shortNames:
+      - rbpol
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                targetVariance:
+                  type: number
+                  format: double
+                  minimum: 0
+                  maximum: 1
+                  default: 0.15
+                hotThreshold:
+                  type: number
+                  format: double
+                  minimum: 0
+                  maximum: 1
+                  default: 0.8
+                coldThreshold:
+                  type: number
+                  format: double
+                  minimum: 0
+                  maximum: 1
+                  default: 0.5
+                hysteresis:
+                  type: number
+                  format: double
+                  minimum: 0
+                  maximum: 0.2
+                  default: 0.05
+                maxEvictionsPerMinute:
+                  type: integer
+                  minimum: 0
+                  default: 3
+                namespaces:
+                  type: object
+                  properties:
+                    include:
+                      type: array
+                      items:
+                        type: string
+                    exclude:
+                      type: array
+                      items:
+                        type: string
+                workloadSelectors:
+                  type: array
+                  items:
+                    type: object
+                    x-kubernetes-map-type: atomic
+                    properties:
+                      matchLabels:
+                        type: object
+                        additionalProperties:
+                          type: string
+                      matchExpressions:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - key
+                            - operator
+                          properties:
+                            key:
+                              type: string
+                            operator:
+                              type: string
+                            values:
+                              type: array
+                              items:
+                                type: string
+                resourceWeights:
+                  type: object
+                  default:
+                    cpu: 0.7
+                    memory: 0.3
+                  properties:
+                    cpu:
+                      type: number
+                      format: double
+                    memory:
+                      type: number
+                      format: double
+                respectPodPriority:
+                  type: boolean
+                  default: true
+                respectPDB:
+                  type: boolean
+                  default: true
+                dryRun:
+                  type: boolean
+                  default: true
+                backoffDuration:
+                  type: string
+                  format: duration
+                  default: 15m
+                maxEvictionsPerNamespace:
+                  type: integer
+                  minimum: 0
+                nodeClassPreference:
+                  type: array
+                  items:
+                    type: string
+              required: []
+            status:
+              type: object
+              properties:
+                observedGeneration:
+                  type: integer
+                  format: int64
+                plan:
+                  type: object
+                  properties:
+                    hotNodes:
+                      type: integer
+                    coldNodes:
+                      type: integer
+                    variance:
+                      type: number
+                      format: double
+                    evictionsPlanned:
+                      type: integer
+                    evictionsExecuted:
+                      type: integer
+                    lastExecutionTime:
+                      type: string
+                      format: date-time
+                    dryRun:
+                      type: boolean
+                    message:
+                      type: string
+      subresources:
+        status: {}

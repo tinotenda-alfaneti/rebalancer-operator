@@ -1,0 +1,46 @@
+{
+  "title": "Rebalancer Overview",
+  "uid": "rebalancer-overview",
+  "timezone": "",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "type": "heatmap",
+      "title": "Node Utilization",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rebalancer_node_utilization",
+          "format": "heatmap",
+          "legendFormat": "{{node}} {{resource}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Cluster Variance",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 9 },
+      "targets": [
+        {
+          "expr": "rebalancer_sigma",
+          "legendFormat": "variance"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Evictions by Namespace",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 9 },
+      "targets": [
+        {
+          "expr": "sum by (namespace)(increase(rebalancer_evictions_total[15m]))",
+          "legendFormat": "{{namespace}}"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+apiVersion: rebalancer.dev/v1
+kind: NodeClass
+metadata:
+  name: rpi4-8gb
+spec:
+  matchLabels:
+    node.kubernetes.io/instance-type: rpi4
+  preferredFor:
+    - cpu-bound
+  weight: 10

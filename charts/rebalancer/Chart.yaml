@@ -1,0 +1,6 @@
+apiVersion: v2
+name: rebalancer
+description: A Kubernetes operator that nudges the scheduler by rebalancing workloads.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

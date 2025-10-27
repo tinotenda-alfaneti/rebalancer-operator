@@ -1,0 +1,5 @@
+The rebalancer operator has been deployed.
+
+Default policy dry-run mode: {{ .Values.policy.dryRun }}
+
+Metrics endpoint: {{ include "rebalancer.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.metrics.service.port }}

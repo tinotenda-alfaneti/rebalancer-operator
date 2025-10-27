@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: trivy-scan
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      serviceAccountName: kaniko-builder
+      restartPolicy: Never
+      containers:
+        - name: trivy
+          image: aquasec/trivy:0.51.1
+          args:
+            - image
+            - --scanners=vuln,secret,misconfig
+            - --severity=CRITICAL,HIGH
+            - --exit-code=0
+            - --format=table
+            - __IMAGE_DEST__
+          env:
+            - name: TRIVY_NON_SSL
+              value: "true"
+            - name: TRIVY_INSECURE
+              value: "true"

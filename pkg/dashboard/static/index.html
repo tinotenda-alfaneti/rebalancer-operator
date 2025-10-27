@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Rebalancer Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      .app {
+        padding: 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 2rem;
+        margin-bottom: 0.25rem;
+      }
+      h2 {
+        margin-top: 2rem;
+        font-size: 1.4rem;
+      }
+      .subtitle {
+        color: #94a3b8;
+        margin-bottom: 1.5rem;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+      .card {
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px solid rgba(148, 163, 184, 0.1);
+        border-radius: 16px;
+        padding: 1.25rem;
+        box-shadow: 0 5px 20px rgba(15, 23, 42, 0.4);
+      }
+      .card.hot {
+        border-color: rgba(248, 113, 113, 0.5);
+        background: linear-gradient(145deg, rgba(239, 68, 68, 0.2), rgba(15, 23, 42, 0.8));
+      }
+      .card.cold {
+        border-color: rgba(96, 165, 250, 0.5);
+        background: linear-gradient(145deg, rgba(59, 130, 246, 0.18), rgba(15, 23, 42, 0.85));
+      }
+      .card.balanced {
+        border-color: rgba(45, 212, 191, 0.4);
+        background: linear-gradient(145deg, rgba(16, 185, 129, 0.15), rgba(15, 23, 42, 0.85));
+      }
+      .node-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 0.75rem;
+      }
+      .node-name {
+        font-weight: 600;
+        font-size: 1.1rem;
+      }
+      .pill {
+        border-radius: 999px;
+        padding: 0.1rem 0.75rem;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .pill.hot { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+      .pill.cold { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+      .pill.balanced { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+      .metric {
+        margin: 0.35rem 0;
+        display: flex;
+        justify-content: space-between;
+        color: #cbd5f5;
+        font-size: 0.95rem;
+      }
+      .metric span.value {
+        font-weight: 600;
+        color: #f1f5f9;
+      }
+      .policy-card ul {
+        margin: 0.5rem 0 0 1.2rem;
+        padding: 0;
+        color: #cbd5f5;
+        font-size: 0.9rem;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.5rem;
+      }
+      .toolbar button {
+        background: linear-gradient(135deg, #3b82f6, #60a5fa);
+        border: none;
+        border-radius: 999px;
+        color: white;
+        padding: 0.5rem 1.25rem;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+      .toolbar button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 20px rgba(59, 130, 246, 0.5);
+      }
+      .timestamp {
+        color: #94a3b8;
+        font-size: 0.85rem;
+      }
+      .error {
+        background: rgba(239, 68, 68, 0.2);
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        border-radius: 12px;
+        padding: 1rem;
+        color: #fecaca;
+      }
+      .loading {
+        font-size: 1rem;
+        color: #cbd5f5;
+      }
+      @media (max-width: 640px) {
+        .app { padding: 1.25rem; }
+        .grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">Loading dashboard…</div>
+    <script type="module">
+      import React, {useEffect, useState, useCallback} from "https://esm.sh/react@18.2.0";
+      import {createRoot} from "https://esm.sh/react-dom@18.2.0/client";
+
+      const formatPercent = (value) => (value ? (value * 100).toFixed(1) + "%" : "0%");
+      const formatCores = (value) => value ? value.toFixed(2) + " cores" : "0 cores";
+      const formatBytes = (value) => {
+        if (!value) return "0 B";
+        const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+        const idx = Math.min(Math.floor(Math.log(value)/Math.log(1024)), units.length - 1);
+        const scaled = value / Math.pow(1024, idx);
+        return scaled.toFixed(1) + " " + units[idx];
+      };
+
+      function NodeCard({node}) {
+        return React.createElement(
+          "div",
+          {className: "card " + node.classification},
+          React.createElement("div", {className: "node-header"}, [
+            React.createElement("span", {key: "name", className: "node-name"}, node.name),
+            React.createElement("span", {key: "pill", className: "pill " + node.classification}, node.classification.toUpperCase())
+          ]),
+          React.createElement("div", {className: "metric"}, [
+            React.createElement("span", {key: "cpuLabel"}, "CPU"),
+            React.createElement("span", {key: "cpuValue", className: "value"}, `${formatCores(node.CPUUsage)} / ${formatCores(node.CPUCapacity)} (${formatPercent(node.CPUUtilization)})`)
+          ]),
+          React.createElement("div", {className: "metric"}, [
+            React.createElement("span", {key: "memLabel"}, "Memory"),
+            React.createElement("span", {key: "memValue", className: "value"}, `${formatBytes(node.MemoryUsage)} / ${formatBytes(node.MemoryCapacity)} (${formatPercent(node.MemoryUtil)})`)
+          ])
+        );
+      }
+
+      function PolicyCard({policy}) {
+        return React.createElement(
+          "div",
+          {className: "card policy-card"},
+          [
+            React.createElement("div", {key: "title", className: "node-header"}, [
+              React.createElement("span", {className: "node-name"}, policy.name),
+              React.createElement("span", {className: "pill balanced"}, policy.dryRun ? "DRY RUN" : "ACTIVE")
+            ]),
+            React.createElement("div", {key: "metrics"}, [
+              React.createElement("div", {className: "metric"}, [
+                React.createElement("span", null, "Target variance"),
+                React.createElement("span", {className: "value"}, policy.targetVariance.toFixed(3))
+              ]),
+              React.createElement("div", {className: "metric"}, [
+                React.createElement("span", null, "Hot threshold"),
+                React.createElement("span", {className: "value"}, policy.hotThreshold.toFixed(2))
+              ]),
+              React.createElement("div", {className: "metric"}, [
+                React.createElement("span", null, "Cold threshold"),
+                React.createElement("span", {className: "value"}, policy.coldThreshold.toFixed(2))
+              ]),
+              React.createElement("div", {className: "metric"}, [
+                React.createElement("span", null, "Evictions/min"),
+                React.createElement("span", {className: "value"}, policy.maxEvictionsPerMinute || 0)
+              ]),
+              React.createElement("div", {className: "metric"}, [
+                React.createElement("span", null, "Evictions/ns"),
+                React.createElement("span", {className: "value"}, policy.maxEvictionsPerNamespace || 0)
+              ])
+            ]),
+            React.createElement("ul", {key: "details"}, [
+              React.createElement("li", {key: "plan1"}, `Hot nodes: ${policy.plan.hotNodes}, Cold nodes: ${policy.plan.coldNodes}`),
+              React.createElement("li", {key: "plan2"}, `Evictions (planned/executed): ${policy.plan.evictionsPlanned}/${policy.plan.evictionsExecuted}`),
+              policy.plan.lastExecutionTime
+                ? React.createElement("li", {key: "plan3"}, `Last execution: ${new Date(policy.plan.lastExecutionTime).toLocaleString()}`)
+                : null,
+              policy.namespacesAllowed?.length
+                ? React.createElement("li", {key: "plan4"}, `Allowed namespaces: ${policy.namespacesAllowed.join(", ")}`)
+                : null,
+              policy.namespacesExcluded?.length
+                ? React.createElement("li", {key: "plan5"}, `Excluded namespaces: ${policy.namespacesExcluded.join(", ")}`)
+                : null
+            ].filter(Boolean))
+          ]
+        );
+      }
+
+      function App() {
+        const [data, setData] = useState(null);
+        const [error, setError] = useState(null);
+        const [loading, setLoading] = useState(true);
+
+        const load = useCallback(async () => {
+          try {
+            const res = await fetch("/dashboard/data", {cache: "no-store"});
+            if (!res.ok) {
+              throw new Error(`Request failed: ${res.status}`);
+            }
+            const json = await res.json();
+            setData(json);
+            setError(null);
+          } catch (err) {
+            setError(err.message);
+          } finally {
+            setLoading(false);
+          }
+        }, []);
+
+        useEffect(() => {
+          load();
+          const id = setInterval(load, 15000);
+          return () => clearInterval(id);
+        }, [load]);
+
+        if (loading && !data) {
+          return React.createElement("div", {className: "app"}, React.createElement("div", {className: "loading"}, "Loading dashboard…"));
+        }
+
+        if (error) {
+          return React.createElement("div", {className: "app"}, React.createElement("div", {className: "error"}, `Failed to load dashboard: ${error}`));
+        }
+
+        return React.createElement("div", {className: "app"}, [
+          React.createElement("h1", {key: "title"}, "Rebalancer Move Map"),
+          React.createElement("div", {key: "subtitle", className: "subtitle"}, "Live view of node pressure, policy budgets, and recent activity."),
+          React.createElement("div", {key: "toolbar", className: "toolbar"}, [
+            React.createElement("button", {key: "refresh", onClick: load}, "Refresh now"),
+            data?.generatedAt
+              ? React.createElement("span", {key: "timestamp", className: "timestamp"}, `Updated ${new Date(data.generatedAt).toLocaleTimeString()}`)
+              : null
+          ]),
+          React.createElement("h2", {key: "nodes-title"}, "Cluster nodes"),
+          React.createElement("div", {key: "nodes-grid", className: "grid"}, data.nodes.map((node) =>
+            React.createElement(NodeCard, {key: node.name, node})
+          )),
+          React.createElement("h2", {key: "policies-title"}, "Policies"),
+          React.createElement("div", {key: "policies-grid", className: "grid"}, data.policies.map((policy) =>
+            React.createElement(PolicyCard, {key: policy.name, policy})
+          ))
+        ]);
+      }
+
+      const root = createRoot(document.getElementById("root"));
+      root.render(React.createElement(App));
+    </script>
+  </body>
+</html>

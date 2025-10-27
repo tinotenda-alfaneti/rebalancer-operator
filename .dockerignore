@@ -1,0 +1,12 @@
+.git
+.gitignore
+bin/
+dist/
+tmp/
+vendor/
+*.log
+*.out
+*.test
+.idea/
+.vscode/
+coverage.*
