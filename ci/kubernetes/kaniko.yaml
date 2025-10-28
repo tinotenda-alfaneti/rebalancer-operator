@@ -3,32 +3,28 @@ kind: Job
 metadata:
   name: kaniko-job
 spec:
-  backoffLimit: 1
   template:
     spec:
       serviceAccountName: kaniko-builder
       restartPolicy: Never
       containers:
         - name: kaniko
-          image: gcr.io/kaniko-project/executor:latest
+          image: gcr.io/kaniko-project/executor:v1.17.0
           args:
-            - --context=__CONTEXT_URL__#__CONTEXT_SUBDIR__
-            - --destination=__IMAGE_DEST__
-            - --dockerfile=Dockerfile
-            - --snapshotMode=redo
-            - --use-new-run
-            - --cache=true
-            - --cache-ttl=24h
-            - --single-snapshot
-            - --log-timestamp
-            - --platform=linux/amd64,linux/arm64
-          env:
-            - name: DOCKER_CONFIG
-              value: /kaniko/.docker/
+            - "--dockerfile=Dockerfile"
+            - "--context=__CONTEXT_URL__"            # e.g. https://github.com/<user>/<repo>.git#main
+            - "--destination=__IMAGE_DEST__"         # e.g. tinorodney/<repo>:<tag>
+            - "--verbosity=info"
+            - "--cleanup"
           volumeMounts:
             - name: docker-config
               mountPath: /kaniko/.docker/
       volumes:
         - name: docker-config
-          secret:
-            secretName: dockerhub-creds
+          projected:
+            sources:
+              - secret:
+                  name: dockerhub-creds
+                  items:
+                    - key: .dockerconfigjson
+                      path: config.json

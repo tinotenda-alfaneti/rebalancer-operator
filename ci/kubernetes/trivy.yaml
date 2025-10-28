@@ -6,20 +6,16 @@ spec:
   backoffLimit: 0
   template:
     spec:
-      serviceAccountName: kaniko-builder
       restartPolicy: Never
       containers:
         - name: trivy
-          image: aquasec/trivy:0.51.1
+          image: aquasec/trivy:latest
           args:
-            - image
-            - --scanners=vuln,secret,misconfig
-            - --severity=CRITICAL,HIGH
-            - --exit-code=0
-            - --format=table
-            - __IMAGE_DEST__
-          env:
-            - name: TRIVY_NON_SSL
-              value: "true"
-            - name: TRIVY_INSECURE
-              value: "true"
+            [
+              "image",
+              "--severity",
+              "HIGH,CRITICAL",
+              "--no-progress",
+              "__IMAGE_DEST__"
+            ]
+
