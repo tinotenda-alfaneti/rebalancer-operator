@@ -33,7 +33,7 @@ ingress:
 
 policy:
   createDefault: true
-  dryRun: true
+  dryRun: false
   namespaceExcludes:
     - kube-system
   selectorLabel:
@@ -41,6 +41,25 @@ policy:
   maxEvictionsPerMinute: 3
   maxEvictionsPerNamespace: 1
   emptyDirThresholdGi: 2
+
+samples:
+  workloadSLO:
+    enabled: false
+    name: api
+    namespace: prod
+    maxDisruptionsPerHour: 2
+    minReadySeconds: 30
+    allowStatefulSetEviction: false
+    protectedLabels:
+      app: api
+  nodeClass:
+    enabled: false
+    name: rpi4-8gb
+    matchLabels:
+      node.kubernetes.io/instance-type: rpi4
+    preferredFor:
+      - cpu-bound
+    weight: 10
 
 resources: {}
 

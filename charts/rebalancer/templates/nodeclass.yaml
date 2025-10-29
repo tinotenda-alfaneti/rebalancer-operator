@@ -1,0 +1,22 @@
+{{- if .Values.samples.nodeClass.enabled }}
+apiVersion: rebalancer.dev/v1
+kind: NodeClass
+metadata:
+  name: {{ .Values.samples.nodeClass.name }}
+spec:
+{{- with .Values.samples.nodeClass.matchLabels }}
+  matchLabels:
+{{ toYaml . | indent 4 }}
+{{- end }}
+{{- with .Values.samples.nodeClass.matchExpressions }}
+  matchExpressions:
+{{ toYaml . | indent 4 }}
+{{- end }}
+{{- with .Values.samples.nodeClass.preferredFor }}
+  preferredFor:
+{{ toYaml . | indent 4 }}
+{{- end }}
+{{- with .Values.samples.nodeClass.weight }}
+  weight: {{ . }}
+{{- end }}
+{{- end }}

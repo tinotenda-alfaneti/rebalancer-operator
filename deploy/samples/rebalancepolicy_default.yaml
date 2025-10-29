@@ -21,6 +21,6 @@ spec:
     memory: 0.3
   respectPodPriority: true
   respectPDB: true
-  dryRun: true
+  dryRun: false
   backoffDuration: 15m
   maxEvictionsPerNamespace: 1

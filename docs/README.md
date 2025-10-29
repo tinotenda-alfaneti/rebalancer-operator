@@ -39,6 +39,8 @@ kubectl apply -f deploy/samples/nodeclass_rpi4.yaml
 helm install rebalancer charts/rebalancer --create-namespace --namespace rebalancer-system
 ```
 
+Set `samples.workloadSLO.enabled=true` and/or `samples.nodeClass.enabled=true` to have Helm install the bundled guardrail resources instead of applying the sample manifests manually. Their fields (namespace, labels, weight, etc.) are exposed under the same `samples.*` keys in `values.yaml`.
+
 The operator defaults to dry-run mode. Flip `spec.dryRun` to `false` in the `RebalancePolicy` to enable real evictions. The `policy.selectorLabel` ensures only opt-in workloads (`rebalancer=ok`) are eligible.
 
 ## Metrics

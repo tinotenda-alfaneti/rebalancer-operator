@@ -1,0 +1,21 @@
+{{- if .Values.samples.workloadSLO.enabled }}
+apiVersion: rebalancer.dev/v1
+kind: WorkloadSLO
+metadata:
+  name: {{ .Values.samples.workloadSLO.name }}
+  namespace: {{ .Values.samples.workloadSLO.namespace }}
+spec:
+{{- with .Values.samples.workloadSLO.maxDisruptionsPerHour }}
+  maxDisruptionsPerHour: {{ . }}
+{{- end }}
+{{- with .Values.samples.workloadSLO.minReadySeconds }}
+  minReadySeconds: {{ . }}
+{{- end }}
+{{- with .Values.samples.workloadSLO.allowStatefulSetEviction }}
+  allowStatefulSetEviction: {{ . }}
+{{- end }}
+{{- with .Values.samples.workloadSLO.protectedLabels }}
+  protectedLabels:
+{{ toYaml . | indent 4 }}
+{{- end }}
+{{- end }}
