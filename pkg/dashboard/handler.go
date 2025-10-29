@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -51,9 +52,26 @@ func (h *Handler) Attach(client client.Client, metrics metrics.Provider, caches 
 
 // Static serves the UI. If dependencies are missing it still serves HTML.
 func (h *Handler) Static(w http.ResponseWriter, r *http.Request) {
-	// Always serve index for directory (single-page app)
-	if r.URL.Path == "" || r.URL.Path == "/" {
-		r.URL.Path = "/index.html"
+	switch r.URL.Path {
+	case "/", "/dashboard", "/dashboard/":
+		content, err := static.ReadFile("static/index.html")
+		if err != nil {
+			http.Error(w, "dashboard index missing", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(content)
+		return
+	}
+
+	if strings.HasPrefix(r.URL.Path, "/dashboard/") {
+		cloned := r.Clone(r.Context())
+		cloned.URL.Path = strings.TrimPrefix(r.URL.Path, "/dashboard")
+		if cloned.URL.Path == "" || cloned.URL.Path == "/" {
+			cloned.URL.Path = "/index.html"
+		}
+		h.static.ServeHTTP(w, cloned)
+		return
 	}
 	h.static.ServeHTTP(w, r)
 }

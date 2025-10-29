@@ -17,7 +17,7 @@ build:
 	@go build ./cmd/manager
 
 run:
-	@go run ./cmd/manager --metrics-bind-address=:8080 --health-probe-bind-address=:8081
+	@go run ./cmd/manager --metrics-bind-address=:8087 --health-probe-bind-address=:8081 --leader-elect=false
 
 docker-build:
 	docker build -t $(IMAGE) .

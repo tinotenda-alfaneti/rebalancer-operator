@@ -70,6 +70,7 @@ func main() {
 		Metrics: metricsserver.Options{
 			BindAddress: metricsAddr,
 			ExtraHandlers: map[string]http.Handler{
+				"/":               http.HandlerFunc(dashboardHandler.Static),
 				"/dashboard":      http.HandlerFunc(dashboardHandler.Static),
 				"/dashboard/":     http.HandlerFunc(dashboardHandler.Static),
 				"/dashboard/data": http.HandlerFunc(dashboardHandler.Data),

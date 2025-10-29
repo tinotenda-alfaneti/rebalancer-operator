@@ -126,6 +126,14 @@
         padding: 1rem;
         color: #fecaca;
       }
+      .empty {
+        background: rgba(148, 163, 184, 0.1);
+        border: 1px dashed rgba(148, 163, 184, 0.3);
+        border-radius: 12px;
+        padding: 1.25rem;
+        color: #94a3b8;
+        text-align: center;
+      }
       .loading {
         font-size: 1rem;
         color: #cbd5f5;
@@ -254,6 +262,21 @@
           return React.createElement("div", {className: "app"}, React.createElement("div", {className: "error"}, `Failed to load dashboard: ${error}`));
         }
 
+        const nodes = data && Array.isArray(data.nodes) ? data.nodes : [];
+        const policies = data && Array.isArray(data.policies) ? data.policies : [];
+
+        const nodesContent = nodes.length
+          ? React.createElement("div", {key: "nodes-grid", className: "grid"}, nodes.map((node) =>
+              React.createElement(NodeCard, {key: node.name, node})
+            ))
+          : React.createElement("div", {key: "nodes-empty", className: "empty"}, "No nodes reported yet.");
+
+        const policiesContent = policies.length
+          ? React.createElement("div", {key: "policies-grid", className: "grid"}, policies.map((policy) =>
+              React.createElement(PolicyCard, {key: policy.name, policy})
+            ))
+          : React.createElement("div", {key: "policies-empty", className: "empty"}, "No policies available.");
+
         return React.createElement("div", {className: "app"}, [
           React.createElement("h1", {key: "title"}, "Rebalancer Move Map"),
           React.createElement("div", {key: "subtitle", className: "subtitle"}, "Live view of node pressure, policy budgets, and recent activity."),
@@ -264,13 +287,9 @@
               : null
           ]),
           React.createElement("h2", {key: "nodes-title"}, "Cluster nodes"),
-          React.createElement("div", {key: "nodes-grid", className: "grid"}, data.nodes.map((node) =>
-            React.createElement(NodeCard, {key: node.name, node})
-          )),
+          nodesContent,
           React.createElement("h2", {key: "policies-title"}, "Policies"),
-          React.createElement("div", {key: "policies-grid", className: "grid"}, data.policies.map((policy) =>
-            React.createElement(PolicyCard, {key: policy.name, policy})
-          ))
+          policiesContent
         ]);
       }
 

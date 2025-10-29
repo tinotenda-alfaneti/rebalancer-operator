@@ -13,6 +13,7 @@ import (
 	promapi "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -102,6 +103,9 @@ func (p *provider) CollectNodeMetrics(ctx context.Context) (map[string]NodeUsage
 	if p.metricsClient != nil {
 		resp, err := p.metricsClient.MetricsV1beta1().NodeMetricses().List(ctx, metav1.ListOptions{})
 		if err != nil {
+			if isMetricsAPIUnavailable(err) {
+				goto custom
+			}
 			return nil, fmt.Errorf("list node metrics: %w", err)
 		}
 		for _, item := range resp.Items {
@@ -117,6 +121,7 @@ func (p *provider) CollectNodeMetrics(ctx context.Context) (map[string]NodeUsage
 		}
 	}
 
+custom:
 	if p.prom != nil && len(p.customNodeQueries) > 0 {
 		if err := p.populateCustomNodeMetrics(ctx, result); err != nil {
 			return nil, err
@@ -133,6 +138,9 @@ func (p *provider) CollectPodMetrics(ctx context.Context) (map[types.NamespacedN
 	if p.metricsClient != nil {
 		resp, err := p.metricsClient.MetricsV1beta1().PodMetricses(corev1.NamespaceAll).List(ctx, metav1.ListOptions{})
 		if err != nil {
+			if isMetricsAPIUnavailable(err) {
+				goto custom
+			}
 			return nil, fmt.Errorf("list pod metrics: %w", err)
 		}
 		for _, item := range resp.Items {
@@ -153,6 +161,7 @@ func (p *provider) CollectPodMetrics(ctx context.Context) (map[types.NamespacedN
 		}
 	}
 
+custom:
 	if p.prom != nil && len(p.customPodQueries) > 0 {
 		if err := p.populateCustomPodMetrics(ctx, result); err != nil {
 			return nil, err
@@ -256,4 +265,18 @@ func readTokenFile(path string) string {
 		return ""
 	}
 	return strings.TrimSpace(string(data))
+}
+
+func isMetricsAPIUnavailable(err error) bool {
+	if err == nil {
+		return false
+	}
+	if apierrors.IsNotFound(err) || apierrors.IsServiceUnavailable(err) {
+		return true
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "the server could not find the requested resource") && strings.Contains(msg, "metrics.k8s.io") {
+		return true
+	}
+	return false
 }
