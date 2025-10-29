@@ -26,8 +26,7 @@ pipeline {
 
     stage('Setup Tools') {
       steps {
-        sh ''' #!/bin/bash
-        set -euo pipefail
+        sh ''' 
         mkdir -p $CACHE_DIR
 
         # ======================
