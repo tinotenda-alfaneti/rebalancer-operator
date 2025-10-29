@@ -112,7 +112,7 @@ pipeline {
             cp "$KUBECONFIG_FILE" $WORKSPACE/.kube/config
             chmod 600 $WORKSPACE/.kube/config
             export KUBECONFIG=$WORKSPACE/.kube/config
-            $WORKSPACE/bin/kubectl cluster-info
+            $CACHE_DIR/kubectl cluster-info
           '''
         }
       }
@@ -124,21 +124,21 @@ pipeline {
           sh '''
             export KUBECONFIG=$WORKSPACE/.kube/config
             echo "🧱 Ensuring namespace ${NAMESPACE} exists..."
-            $WORKSPACE/bin/kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | $WORKSPACE/bin/kubectl apply -f -
+            $CACHE_DIR/kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | $CACHE_DIR/kubectl apply -f -
 
             echo "🔁 Copying dockerhub credentials..."
-            $WORKSPACE/bin/kubectl get secret dockerhub-creds -n ${SOURCE_NS} -o yaml \
+            $CACHE_DIR/kubectl get secret dockerhub-creds -n ${SOURCE_NS} -o yaml \
               | grep -v 'resourceVersion:' | grep -v 'uid:' | grep -v 'creationTimestamp:' \
               | sed "s/namespace: ${SOURCE_NS}/namespace: ${NAMESPACE}/" \
-              | $WORKSPACE/bin/kubectl apply -n ${NAMESPACE} -f -
+              | $CACHE_DIR/kubectl apply -n ${NAMESPACE} -f -
 
             echo "🔐 Ensuring kaniko-builder ServiceAccount and RBAC exist..."
-            $WORKSPACE/bin/kubectl get sa kaniko-builder -n ${NAMESPACE} >/dev/null 2>&1 \
-              || $WORKSPACE/bin/kubectl create serviceaccount kaniko-builder -n ${NAMESPACE}
+            $CACHE_DIR/kubectl get sa kaniko-builder -n ${NAMESPACE} >/dev/null 2>&1 \
+              || $CACHE_DIR/kubectl create serviceaccount kaniko-builder -n ${NAMESPACE}
 
             CRB_NAME="kaniko-builder-${NAMESPACE}"
-            if ! $WORKSPACE/bin/kubectl get clusterrolebinding ${CRB_NAME} >/dev/null 2>&1; then
-              $WORKSPACE/bin/kubectl create clusterrolebinding ${CRB_NAME} \
+            if ! $CACHE_DIR/kubectl get clusterrolebinding ${CRB_NAME} >/dev/null 2>&1; then
+              $CACHE_DIR/kubectl create clusterrolebinding ${CRB_NAME} \
                 --clusterrole=cluster-admin \
                 --serviceaccount=${NAMESPACE}:kaniko-builder
             fi
@@ -161,10 +161,10 @@ pipeline {
                 -e "s|__IMAGE_DEST__|${IMAGE_DEST}|g" \
                 $WORKSPACE/ci/kubernetes/kaniko.yaml > kaniko-job.yaml
 
-            $WORKSPACE/bin/kubectl delete job kaniko-job -n ${NAMESPACE} --ignore-not-found=true
-            $WORKSPACE/bin/kubectl apply -f kaniko-job.yaml -n ${NAMESPACE}
-            $WORKSPACE/bin/kubectl wait --for=condition=complete job/kaniko-job -n ${NAMESPACE} --timeout=20m
-            $WORKSPACE/bin/kubectl logs job/kaniko-job -n ${NAMESPACE} || true
+            $CACHE_DIR/kubectl delete job kaniko-job -n ${NAMESPACE} --ignore-not-found=true
+            $CACHE_DIR/kubectl apply -f kaniko-job.yaml -n ${NAMESPACE}
+            $CACHE_DIR/kubectl wait --for=condition=complete job/kaniko-job -n ${NAMESPACE} --timeout=20m
+            $CACHE_DIR/kubectl logs job/kaniko-job -n ${NAMESPACE} || true
           '''
         }
       }
@@ -180,10 +180,10 @@ pipeline {
             echo "🔍 Running Trivy scan for ${IMAGE_DEST}"
             sed "s|__IMAGE_DEST__|${IMAGE_DEST}|g" $WORKSPACE/ci/kubernetes/trivy.yaml > trivy-job.yaml
 
-            $WORKSPACE/bin/kubectl delete job trivy-scan -n ${NAMESPACE} --ignore-not-found=true
-            $WORKSPACE/bin/kubectl apply -f trivy-job.yaml -n ${NAMESPACE}
-            $WORKSPACE/bin/kubectl wait --for=condition=complete job/trivy-scan -n ${NAMESPACE} --timeout=10m || true
-            $WORKSPACE/bin/kubectl logs job/trivy-scan -n ${NAMESPACE} || true
+            $CACHE_DIR/kubectl delete job trivy-scan -n ${NAMESPACE} --ignore-not-found=true
+            $CACHE_DIR/kubectl apply -f trivy-job.yaml -n ${NAMESPACE}
+            $CACHE_DIR/kubectl wait --for=condition=complete job/trivy-scan -n ${NAMESPACE} --timeout=10m || true
+            $CACHE_DIR/kubectl logs job/trivy-scan -n ${NAMESPACE} || true
           '''
         }
       }
@@ -196,7 +196,7 @@ pipeline {
             export KUBECONFIG=$WORKSPACE/.kube/config
             echo "⚙️ Deploying ${APP_NAME} via Helm..."
 
-            $WORKSPACE/bin/helm upgrade --install ${APP_NAME} $WORKSPACE/charts/rebalancer \
+            $CACHE_DIR/helm upgrade --install ${APP_NAME} $WORKSPACE/charts/rebalancer \
               --namespace ${NAMESPACE} \
               --create-namespace \
               --set image.repository=${IMAGE_NAME} \
@@ -213,8 +213,8 @@ pipeline {
           sh '''
             export KUBECONFIG=$WORKSPACE/.kube/config
             echo "🩺 Running Helm tests..."
-            $WORKSPACE/bin/helm test ${APP_NAME} --namespace ${NAMESPACE} --logs --timeout 2m || true
-            $WORKSPACE/bin/kubectl get pods -n ${NAMESPACE}
+            $CACHE_DIR/helm test ${APP_NAME} --namespace ${NAMESPACE} --logs --timeout 2m || true
+            $CACHE_DIR/kubectl get pods -n ${NAMESPACE}
           '''
         }
       }
@@ -232,8 +232,8 @@ pipeline {
       withCredentials([file(credentialsId: "${KUBECONFIG_CRED}", variable: 'KUBECONFIG_FILE')]) {
         sh '''
           export KUBECONFIG=$WORKSPACE/.kube/config
-          kubectl delete job kaniko-job -n ${NAMESPACE} --ignore-not-found=true
-          kubectl delete job trivy-scan -n ${NAMESPACE} --ignore-not-found=true
+          $CACHE_DIR/kubectl delete job kaniko-job -n ${NAMESPACE} --ignore-not-found=true
+          $CACHE_DIR/kubectl delete job trivy-scan -n ${NAMESPACE} --ignore-not-found=true
         '''
       }
       cleanWs()
