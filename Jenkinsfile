@@ -67,7 +67,7 @@ pipeline {
 
           # --- Go ---
           if [ ! -d "$CACHE_DIR/go" ]; then
-            GOVERSION="1.22.6"
+            GOVERSION="1.24.0"
             echo "⚙️ Installing Go ${GOVERSION}..."
             curl -fsSLO "https://go.dev/dl/go${GOVERSION}.linux-${KARCH}.tar.gz"
             tar -C "$CACHE_DIR" -xzf "go${GOVERSION}.linux-${KARCH}.tar.gz"
@@ -92,9 +92,12 @@ pipeline {
     stage('Unit Tests') {
       steps {
         sh '''
-          export PATH=$WORKSPACE/bin:$WORKSPACE/.go/bin:$PATH
+          export PATH=$CACHE_DIR/go/bin:$CACHE_DIR:$WORKSPACE/bin:$WORKSPACE/.go/bin:$PATH
+          export GOROOT=$CACHE_DIR/go
           go env -w GOPATH=$WORKSPACE/.gopath
+
           echo "🧪 Running unit tests..."
+          go version
           go test ./...
         '''
       }
