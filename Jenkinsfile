@@ -29,18 +29,20 @@ pipeline {
         sh ''' 
         mkdir -p $CACHE_DIR
 
+        # --- Detect architecture ---
+        ARCH=$(uname -m)
+        case "$ARCH" in
+          x86_64)  KARCH="amd64" ;;
+          aarch64) KARCH="arm64" ;;
+          armv7l)  KARCH="armv7" ;;
+          *) echo "❌ Unsupported architecture: $ARCH" && exit 1 ;;
+        esac
+
         # ======================
         # ⚙️ Install kubectl
         # ======================
         if [ ! -x "$CACHE_DIR/kubectl" ]; then
           echo "⚙️ Installing kubectl..."
-          ARCH=$(uname -m)
-          case "$ARCH" in
-            aarch64) KARCH="arm64" ;;
-            x86_64)  KARCH="amd64" ;;
-            *) echo "❌ Unsupported architecture: $ARCH"; exit 1 ;;
-          esac
-
           VER=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
           curl -fsSLO "https://storage.googleapis.com/kubernetes-release/release/${VER}/bin/linux/${KARCH}/kubectl"
           chmod +x kubectl
@@ -54,11 +56,13 @@ pipeline {
         # ⚙️ Install Helm
         # ======================
         if [ ! -x "$CACHE_DIR/helm" ]; then
-          echo "⚙️ Installing Helm..."
-          curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
-          chmod 700 get_helm.sh
-          ./get_helm.sh
-          mv $(command -v helm) $CACHE_DIR/
+          HELM_VER="v3.19.0"
+          echo "⚙️ Installing Helm ${HELM_VER}..."
+          curl -fsSLO https://get.helm.sh/helm-${HELM_VER}-linux-${KARCH}.tar.gz
+          tar -zxf helm-${HELM_VER}-linux-${KARCH}.tar.gz
+          mv linux-${KARCH}/helm $CACHE_DIR/
+          chmod +x $CACHE_DIR/helm
+          rm -rf linux-${KARCH} helm-${HELM_VER}-linux-${KARCH}.tar.gz
         else
           echo "✅ Using cached Helm"
         fi
