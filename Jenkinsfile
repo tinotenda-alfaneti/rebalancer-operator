@@ -24,84 +24,70 @@ pipeline {
       }
     }
 
-    stage('Setup Tools') {
+    stage('Install Tools') {
       steps {
-        sh ''' 
-        mkdir -p $CACHE_DIR
+        sh '''
 
-        # --- Detect architecture ---
-        ARCH=$(uname -m)
-        case "$ARCH" in
-          x86_64)  KARCH="amd64" ;;
-          aarch64) KARCH="arm64" ;;
-          armv7l)  KARCH="armv7" ;;
-          *) echo "❌ Unsupported architecture: $ARCH" && exit 1 ;;
-        esac
+          echo "⚙️ Setting up tool cache..."
+          CACHE_DIR="/var/jenkins_home/cache/bin"
+          mkdir -p "$CACHE_DIR"
 
-        # ======================
-        # ⚙️ Install kubectl
-        # ======================
-        if [ ! -x "$CACHE_DIR/kubectl" ]; then
-          echo "⚙️ Installing kubectl..."
-          VER=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
-          curl -fsSLO "https://storage.googleapis.com/kubernetes-release/release/${VER}/bin/linux/${KARCH}/kubectl"
-          chmod +x kubectl
-          mv kubectl $CACHE_DIR/
-        else
-          echo "✅ Using cached kubectl"
-        fi
-
-
-        # ======================
-        # ⚙️ Install Helm
-        # ======================
-        if [ ! -x "$CACHE_DIR/helm" ]; then
-          HELM_VER="v3.19.0"
-          echo "⚙️ Installing Helm ${HELM_VER}..."
-          curl -fsSLO https://get.helm.sh/helm-${HELM_VER}-linux-${KARCH}.tar.gz
-          tar -zxf helm-${HELM_VER}-linux-${KARCH}.tar.gz
-          mv linux-${KARCH}/helm $CACHE_DIR/
-          chmod +x $CACHE_DIR/helm
-          rm -rf linux-${KARCH} helm-${HELM_VER}-linux-${KARCH}.tar.gz
-        else
-          echo "✅ Using cached Helm"
-        fi
-
-
-        # ======================
-        # ⚙️ Install Go
-        # ======================
-        if [ ! -x "$CACHE_DIR/go" ]; then
-          echo "⚙️ Installing Go..."
-          GOVERSION="1.22.6"
+          # --- Detect architecture ---
           ARCH=$(uname -m)
           case "$ARCH" in
-            aarch64) GOARCH="arm64" ;;
-            x86_64)  GOARCH="amd64" ;;
-            *) echo "❌ Unsupported architecture: $ARCH"; exit 1 ;;
+            x86_64)  KARCH="amd64" ;;
+            aarch64) KARCH="arm64" ;;
+            armv7l)  KARCH="armv7" ;;
+            *) echo "❌ Unsupported architecture: $ARCH" && exit 1 ;;
           esac
 
-          curl -fsSLO "https://go.dev/dl/go${GOVERSION}.linux-${GOARCH}.tar.gz"
-          tar -C /tmp -xzf "go${GOVERSION}.linux-${GOARCH}.tar.gz"
-          mv /tmp/go/bin/go $CACHE_DIR/
-          rm -rf /tmp/go "go${GOVERSION}.linux-${GOARCH}.tar.gz"
-        else
-          echo "✅ Using cached Go"
-        fi
+          # --- kubectl ---
+          if [ ! -x "$CACHE_DIR/kubectl" ]; then
+            echo "⚙️ Installing kubectl..."
+            VER=$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)
+            curl -fsSLO "https://storage.googleapis.com/kubernetes-release/release/${VER}/bin/linux/${KARCH}/kubectl"
+            chmod +x kubectl
+            mv kubectl "$CACHE_DIR/"
+          else
+            echo "✅ Using cached kubectl"
+          fi
 
+          # --- Helm ---
+          if [ ! -x "$CACHE_DIR/helm" ]; then
+            HELM_VER="v3.19.0"
+            echo "⚙️ Installing Helm ${HELM_VER}..."
+            curl -fsSLO "https://get.helm.sh/helm-${HELM_VER}-linux-${KARCH}.tar.gz"
+            tar -zxf "helm-${HELM_VER}-linux-${KARCH}.tar.gz"
+            mv "linux-${KARCH}/helm" "$CACHE_DIR/"
+            chmod +x "$CACHE_DIR/helm"
+            rm -rf "linux-${KARCH}" "helm-${HELM_VER}-linux-${KARCH}.tar.gz"
+          else
+            echo "✅ Using cached Helm"
+          fi
 
-        # ======================
-        # ✅ Add cache directory to PATH
-        # ======================
-        export PATH=$CACHE_DIR:$PATH
+          # --- Go ---
+          if [ ! -d "$CACHE_DIR/go" ]; then
+            GOVERSION="1.22.6"
+            echo "⚙️ Installing Go ${GOVERSION}..."
+            curl -fsSLO "https://go.dev/dl/go${GOVERSION}.linux-${KARCH}.tar.gz"
+            tar -C "$CACHE_DIR" -xzf "go${GOVERSION}.linux-${KARCH}.tar.gz"
+            rm -f "go${GOVERSION}.linux-${KARCH}.tar.gz"
+          else
+            echo "✅ Using cached Go"
+          fi
 
-        echo "🔍 Tool versions:"
-        $CACHE_DIR/kubectl version --client --short || true
-        $CACHE_DIR/helm version || true
-        $CACHE_DIR/go version || true
+          # --- PATH & verify ---
+          export PATH="$CACHE_DIR/go/bin:$CACHE_DIR:$PATH"
+          export GOROOT="$CACHE_DIR/go"
+
+          echo "🔍 Tool versions:"
+          "$CACHE_DIR/kubectl" version --client || true
+          "$CACHE_DIR/helm" version || true
+          go version || true
         '''
       }
     }
+
 
     stage('Unit Tests') {
       steps {
