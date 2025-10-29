@@ -161,21 +161,31 @@
       };
 
       function NodeCard({node}) {
+        const classification = node?.classification || "balanced";
+        const cpuUsage = node?.cpuUsage ?? 0;
+        const cpuCapacity = node?.cpuCapacity ?? 0;
+        const cpuUtil = node?.cpuUtilization ?? 0;
+        const memUsage = node?.memoryUsage ?? 0;
+        const memCapacity = node?.memoryCapacity ?? 0;
+        const memUtil = node?.memoryUtilization ?? 0;
+
         return React.createElement(
           "div",
-          {className: "card " + node.classification},
-          React.createElement("div", {className: "node-header"}, [
-            React.createElement("span", {key: "name", className: "node-name"}, node.name),
-            React.createElement("span", {key: "pill", className: "pill " + node.classification}, node.classification.toUpperCase())
-          ]),
-          React.createElement("div", {className: "metric"}, [
-            React.createElement("span", {key: "cpuLabel"}, "CPU"),
-            React.createElement("span", {key: "cpuValue", className: "value"}, `${formatCores(node.CPUUsage)} / ${formatCores(node.CPUCapacity)} (${formatPercent(node.CPUUtilization)})`)
-          ]),
-          React.createElement("div", {className: "metric"}, [
-            React.createElement("span", {key: "memLabel"}, "Memory"),
-            React.createElement("span", {key: "memValue", className: "value"}, `${formatBytes(node.MemoryUsage)} / ${formatBytes(node.MemoryCapacity)} (${formatPercent(node.MemoryUtil)})`)
-          ])
+          {className: "card " + classification},
+          [
+            React.createElement("div", {key: "header", className: "node-header"}, [
+              React.createElement("span", {key: "name", className: "node-name"}, node?.name || "unknown"),
+              React.createElement("span", {key: "pill", className: "pill " + classification}, classification.toUpperCase())
+            ]),
+            React.createElement("div", {key: "cpu", className: "metric"}, [
+              React.createElement("span", {key: "cpuLabel"}, "CPU"),
+              React.createElement("span", {key: "cpuValue", className: "value"}, `${formatCores(cpuUsage)} / ${formatCores(cpuCapacity)} (${formatPercent(cpuUtil)})`)
+            ]),
+            React.createElement("div", {key: "mem", className: "metric"}, [
+              React.createElement("span", {key: "memLabel"}, "Memory"),
+              React.createElement("span", {key: "memValue", className: "value"}, `${formatBytes(memUsage)} / ${formatBytes(memCapacity)} (${formatPercent(memUtil)})`)
+            ])
+          ]
         );
       }
 
